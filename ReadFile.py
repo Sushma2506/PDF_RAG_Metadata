@@ -9,6 +9,10 @@ import pandas as pd
 from PIL import Image
 import fitz  # PyMuPDF for PDF images
 
+# Reconfigure stdout to handle utf-8 characters properly in Windows terminal
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding='utf-8')
+
 file_path = r"C:\Users\saira\Downloads\SAU-I-983-Instructions.pptx"
 
 def ensure_dir(directory):
@@ -111,9 +115,9 @@ def read_file(file_path):
                     text += "[/TABLE]\n"
                 elif shape.shape_type == MSO_SHAPE_TYPE.PICTURE:
                     # Extract PPTX images
-                    image_part = shape.image_part
-                    image_bytes = image_part.blob
-                    image_extension = image_part.content_type.split('/')[-1]
+                    image_obj = shape.image
+                    image_bytes = image_obj.blob
+                    image_extension = image_obj.content_type.split('/')[-1]
                     img_path = os.path.join(img_dir, f"ppt_slide{slide_num}_img{shape_idx}.{image_extension}")
                     
                     with open(img_path, 'wb') as f:
