@@ -1,13 +1,27 @@
+from dotenv import load_dotenv
 from pptx.enum.shapes import MSO_SHAPE_TYPE
 from pptx import Presentation
 import os
 import sys
+import time
 import pdfplumber
 from bs4 import BeautifulSoup
 import docx
 import pandas as pd
 from PIL import Image
 import fitz  # PyMuPDF for PDF images
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_huggingface import HuggingFaceEmbeddings
+# Create a vector store with a sample text
+# from langchain_core.vectorstores import InMemoryVectorStore
+from langchain_ollama import OllamaLLM
+#from langchain_core.prompts import PromptTemplate       not required for now
+# from langchain.chains import RetrievalQA      why is this used if its not correct what should be used
+from pinecone import Pinecone, ServerlessSpec
+from langchain_pinecone import PineconeVectorStore
+
+# loading .env file (must be first)
+load_dotenv(verbose=True)   # Shows exactly which line fails
 
 # Reconfigure stdout to handle utf-8 characters properly in Windows terminal
 if sys.platform == "win32":
@@ -162,13 +176,111 @@ def read_file(file_path):
         except:
             return f"[ERROR: Could not read {os.path.basename(file_path)}]"
 
+def get_text_chunks(text, chunk_size=500, chunk_overlap=50):
+    splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+    final_split = splitter.split_text(text)
+    return final_split
+
 if __name__ == "__main__":
-    if len(sys.argv) > 1:
-        print(read_file(sys.argv[1]))
-    elif os.path.exists(file_path):
-        print(f"Reading default file: {file_path}")
-        print(f"Images will be saved to: {os.path.join(os.path.dirname(file_path), f'{os.path.splitext(os.path.basename(file_path))[0]}_images')}")
-        print("="*80)
-        print(read_file(file_path))
+    # Step 1: Read file and split into chunks
+    full_text = read_file(file_path)
+    print(f"File loaded. Length: {len(full_text)} characters.")
+    # print(full_text)
+    with open("output.txt", "w", encoding="utf-8") as f:
+        f.write(full_text)
+    print("extracted text save to output.txt")
+
+    chunks = get_text_chunks(full_text)
+    #print(f"Split into {len(chunks)} chunks.")
+    for i, chunk in enumerate(chunks):
+        if "sevis" in chunk.lower():     # .lower() for case-insensitive search
+            print(f"FOUND SEVIS in chunk {i}: {chunk}")
+        
+    # Step 2: Setup embeddings and LLM
+    ##embeddings = OllamaEmbeddings(model="llama3")
+    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+    llm = OllamaLLM(model="llama3")
+
+    # Step 3: Create/connect to Pinecone index (must be done before storing vectors)
+    index_name = "my-first-rag-1"
+    pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
+    if not pc.has_index(index_name):
+        pc.create_index(
+            name=index_name,
+            dimension=384,    # all-MiniLM-L6-v2 dimensions
+            metric="cosine",
+            spec=ServerlessSpec(cloud="aws", region="us-east-1"),
+        )
+
+    index = pc.Index(index_name)
+
+    # Step 4: Create vector store and only add text if index is empty
+    vectorstore = PineconeVectorStore(index=index, embedding=embeddings)
+    
+    # Check if we already have vectors in the index to avoid duplicates
+    stats = index.describe_index_stats()
+    vector_count = stats.get('total_vector_count', 0)
+
+    if vector_count > 0:
+        choice = input(f"Index contains {vector_count} vectors. Would you like to clear it and re-index? (y/n): ")
+        if choice.lower() == 'y':
+            print("Clearing index...")
+            index.delete(delete_all=True)
+            vector_count = 0
+            # Wait a moment for the deletion to propagate
+            time.sleep(2)
+
+    if vector_count == 0:
+        print(f"Indexing {len(chunks)} chunks...")
+        vectorstore.add_texts(texts=chunks)
+        print("Indexing complete.")
     else:
-        print("Usage: python ReadFile.py <path_to_file>")
+        print(f"Skipping indexing. Using existing {vector_count} vectors.")
+
+    # Step 5: Create retriever for querying
+    retriever = vectorstore.as_retriever(search_kwargs={"k": 8})
+    
+    # Step 6: Query loop
+    while True:
+        question = input("\nEnter your question (or 'quit' to exit): ")
+
+        if question.lower() in ['exit', 'quit', 'bye', 'goodbye', 'q']:
+            print("Goodbye!")
+            break
+
+        # Retrieve the most similar text
+        # retrieved_documents = retriever.invoke(question)
+        # Retrieve the most similar text WITH SCORES
+        retrieved_documents = vectorstore.similarity_search_with_score(question, k=8)
+        print("\n--- SOURCES FOUND ---")
+        for i, (doc, score) in enumerate(retrieved_documents, 1):
+            print(f"Source {i} (Score: {score:.4f}):\n{doc.page_content[:200]}...")
+            
+        context = "\n\n".join([doc.page_content for doc, score in retrieved_documents])
+        print("\n=== FULL CONTEXT SENT TO LLM ===")
+        print(context[:2000])  # Show first 2000 chars
+        print("=== END CONTEXT ===\n")
+
+        # Generate response using context with a stricter prompt
+        prompt = f"""You are a helpful assistant. Use ONLY the following pieces of context to answer the question at the end. 
+
+        IMPORTANT: Read through ALL the context carefully. The answer might be anywhere in the context, not just at the beginning.
+        If you don't know the answer based on the context, just say that you don't know, don't try to make up an answer.
+
+        Context:
+        {context}
+
+        Question: {question}
+
+        Think step by step:
+        1. What exactly is the question asking for?
+        2. Search through the context for the specific answer
+        3. Provide only the answer that directly addresses the question
+        
+        Answer:"""
+        
+        response = llm.invoke(prompt)
+        print(f"\nAnswer: {response}")
+else:
+    print("Usage: python ReadFile.py")
+

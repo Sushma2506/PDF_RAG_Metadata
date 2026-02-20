@@ -1,0 +1,127 @@
+
+--- SLIDE 1 ---
+SAU I-983 Instructions
+This PowerPoint provides simple instructions to complete the I983 form.
+SEVP also provides instructions on how to complete the I-983 form. It is recommended that you read through them if you have any additional questions. https://studyinthestates.dhs.gov/form-i-983-overview
+[IMAGE SAVED: SAU-I-983-Instructions_images\ppt_slide1_img2.png]
+
+--- SLIDE 2 ---
+Introduction
+This PowerPoint will explain each part of the I-983 form. All information is correct at the time of this PowerPoint being created. Pictures will accompany where examples will be helpful.
+**Type all information directly into the .pdf before printing. Handwritten forms may cause the machine to make errors when converting the information into electronic form.
+*All signatures must be signed by hand, with pen. The form should then be scanned.
+
+--- SLIDE 3 ---
+Section 1, Student Information
+Student Name: Enter your full name (Surname/Primary Name, Given Name) exactly as it
+appears on your SEVIS issued Form I‐20.
+Student Email Address: Enter the email address where you can be contacted.
+Name of School Recommending STEM OPT: Southern Arkansas University.
+Name of School Where STEM Degree Was Earned: Enter the name of the school from which
+you earned the degree upon which the STEM OPT is based.  This may or may not be the
+same school recommending the STEM OPT if you are using a prior STEM degree.
+SEVIS School Code of School Recommending STEM OPT: NOL214F10339000
+DSO Name and Contact Information: Jason Martisek, jasonmartisek@saumag.edu, (870) 235-4000.
+Student SEVIS ID Number: Enter your SEVIS identification (ID) number.
+STEM OPT Requested Period: Enter the period during which you are requesting to work on
+STEM OPT.
+
+--- SLIDE 4 ---
+Section 1 Continued…
+Qualifying Major and Classification of Instructional Programs (CIP) Code: Enter your STEM
+major that qualifies you for the STEM OPT extension, as well as the degree’s (CIP) code.  You
+can find the CIP code on your I20.
+Level/Type of Qualifying Degree: Enter the academic level upon which you are basing STEM OPT.  (For example, enter Bachelor’s, Master’s, or Ph.D.)
+Date Awarded: Enter the date when the degree, upon which STEM OPT will be based, was awarded.
+Based on Prior Degree?  Check “Yes” if your STEM OPT participation is based on a
+previously‐obtained STEM degree, and is not the same degree upon which your current
+post‐completion OPT was granted.  Check “No” if your STEM OPT participation is based on
+your most recently obtained degree, and that is the degree upon which your current post‐
+completion OPT is based.
+Employment Authorization Number: Enter your “A” number, (which may be found on the
+Employment Authorization Document).
+
+--- SLIDE 5 ---
+Section 1 Example
+[IMAGE SAVED: SAU-I-983-Instructions_images\ppt_slide5_img1.png]
+
+--- SLIDE 6 ---
+Section 2, Student Certification and Example:
+Signature of Student: Sign by hand, with pen.
+[IMAGE SAVED: SAU-I-983-Instructions_images\ppt_slide6_img2.jpeg]
+
+--- SLIDE 7 ---
+Section 3, Employer Information (Completed by Employer):
+Employer Name: Enter your company, university, etc. name.
+Street Address, Suite, City, State, Zip Code: Enter the employer or company mailing address.
+Employer Website URL: Enter the employer website URL, if available. If no website exists,
+enter N/A.
+Employer ID Number (EIN): Enter the Employer Identification Number (EIN).
+Number of Full‐Time Employees in the United States: Provide the number of full‐time
+employees in the United States.
+North American Industry Classification System (NAICS) Code: Enter the company’s NAICS
+code.
+
+--- SLIDE 8 ---
+Section 3 Continued and Example
+OPT Training Hours Per Week: Enter the agreed‐upon number of average training hours per week.  In order to qualify for STEM OPT, the student must work a minimum of 20 hours per week.
+Start Date of Employment: Enter the date when the student will begin the STEM OPT training with the employer (this will usually match the requested start date in Section 1).
+Compensation: Enter the dollar amount of salary, stipend, and/or other compensation, and the frequency of pay (per hour, per week, bi‐weekly, monthly).  Other compensation may include housing, tuition waivers, transportation costs, etc.
+[IMAGE SAVED: SAU-I-983-Instructions_images\ppt_slide8_img2.png]
+
+--- SLIDE 9 ---
+Section 4, Employer Certification
+Employer Certification: The Employer Official with Signatory Authority, who is an appropriate individual in the employer’s organization, who is familiar with the student’s goals and performance, and who is an employee who has signatory authority for the employer should review the certification and affirm the statement by signature. This should be signed by hand, with pen.
+[IMAGE SAVED: SAU-I-983-Instructions_images\ppt_slide9_img2.jpeg]
+
+--- SLIDE 10 ---
+Section 5: Training Plan for STEM OPT Students(Completed by Employer):
+In order to better ensure the academic benefit and integrity of the extension, Federal
+regulations require each STEM OPT student to prepare and execute with his or her prospective
+employer a formal training plan that identifies learning objectives and a plan for achieving those
+objectives.  The STEM OPT student and his or her employer must work together to finalize the
+plan.
+Student Name: Enter the student’s name (Surname/Primary Name, Given Name) exactly as
+it appears on the student’s SEVIS‐issued Form I‐20.
+Employer Name: Enter the employer’s name, as it appears in “Section 3: Employer
+Information.”
+Site Name: Enter the employer’s site name, which may be the same as employer name in
+Section 3.  However, if the student is working for a branch or subsidiary of a large entity, or
+anywhere other than the headquarters, provide the name of this work site.
+
+--- SLIDE 11 ---
+Section 5: Training Plan for STEM OPT Students Continued…
+Site Address: Enter the exact address of the work site where the STEM practical training will take place.
+Name of Official: Enter the name of the appropriate individual in the employer’s organization who will monitor the student’s goals and performance.  This may or may not be the same Employer Official as in Section 4.
+Official’s Title: Enter the title of the appropriate individual in the employer’s organization who is familiar with, and will monitor, the student’s goals and performance.
+Official’s Email: Enter the email address of the appropriate individual in the employer’s organization who is familiar with, and will monitor, the student’s goals and performance.
+Official’s Phone Number: Enter the phone number of the appropriate individual in the employer’s organization who is familiar with, and will monitor, the student’s goals and performance.
+Student Role and the Training Program’s Direct Relationship to the Student’s Qualifying STEM Degree: Describe what tasks and assignments the student will carry out during the training and how these relate to the student’s STEM degree.  The plan must cover a specific span of time, and detail specific goals and objectives.
+
+--- SLIDE 12 ---
+Section 5: Training Plan for STEM OPT Students Continued…
+Goals and Objectives: Describe the specific skills, knowledge, and techniques the student will learn or apply; how the student will achieve the goals set out for his or her training; and the training curriculum including the timeline.
+Employer Oversight: Explain how the employer provides oversight and supervision of individuals filling positions such as that being filled by the named F‐1 student.  If the employer has a training program or related policy in place that controls such oversight and supervision, a description of this program or policy may suffice to answer the question.
+Measures and Assessments: Explain how the employer measures and confirms whether individuals filling positions such as that being filled by the named F‐1 student are acquiring new knowledge and skills.  If the employer has a training program or related policy in place that controls such measures and assessments, a description of this program or policy may suffice to answer the question.
+Additional Remarks.  Provide any additional pertinent information.
+
+--- SLIDE 13 ---
+Section 5 Example
+[IMAGE SAVED: SAU-I-983-Instructions_images\ppt_slide13_img1.png]
+
+--- SLIDE 14 ---
+Section 5 Example, Continued
+[IMAGE SAVED: SAU-I-983-Instructions_images\ppt_slide14_img1.png]
+
+--- SLIDE 15 ---
+Section 6: Employer Official Certification:
+Note: The individual who signs this certification need not be, but can be, the same individual who signed the Employer Certification in Section 4.  An employee with signatory authority for the employer should review the certification and affirm the statement by signature. Please sign the form by hand, with pen.
+[IMAGE SAVED: SAU-I-983-Instructions_images\ppt_slide15_img2.jpeg]
+
+--- SLIDE 16 ---
+Evaluation on Student Progress:
+Student evaluations are a shared responsibility of both the student and the employer to ensure that the student’s practical training goals are being satisfactorily met.  The student is responsible for conducting a self‐evaluation based on his or her own training progress.  The employer must review and sign the self‐evaluation to attest to its accuracy.
+The student submits the first assessment within twelve months and a final evaluation that recaps all the training and knowledge acquired during the complete training period.
+Enter the range of the student evaluation dates (the timeline for which this evaluation is relevant).
+The student must sign, print name, and enter date of signature.
+The Employer Official with Signatory Authority must sign, print name, and enter the date of signature to show concurrence with the assessment information that the student has entered.
