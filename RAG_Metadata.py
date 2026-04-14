@@ -340,16 +340,16 @@ def get_text_chunks(
         for i, sem_chunk in enumerate(semantic_chunks):
             smaller_chunks = splitter.split_text(sem_chunk)
 
-        for j, chunk in enumerate(smaller_chunks):
-            all_chunks.append(
-                {
-                    "text": chunk,
-                    "metadata": {
-                        **base_metadata,
-                        "chunk_index": f"{i}_{j}",  # e.g. "2_0", "2_1"
-                    },
-                }
-            )
+            for j, chunk in enumerate(smaller_chunks):
+                all_chunks.append(
+                    {
+                        "text": chunk,
+                        "metadata": {
+                            **base_metadata,
+                            "chunk_index": f"{i}_{j}",  # e.g. "2_0", "2_1"
+                        },
+                    }
+                )
 
     return all_chunks
 
@@ -456,7 +456,7 @@ if __name__ == "__main__":
                 f"Chunk: {meta.get('chunk_index')}"
             )
 
-        context = "\n\n".join([doc.page_content for doc, score in retrieved_documents])
+        context = "\n\n".join([doc.page_content for doc, score in reranked_documents])
 
         print(f"\n📊 Context stats:")
         print(f"  Chunks: {len(retrieved_documents)}")
