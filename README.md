@@ -1,6 +1,6 @@
-# 📄 PDF RAG with Metadata & Reranking
+# 📄 PDF RAG with Metadata, Smart Filters & Reranking
 
-A Retrieval-Augmented Generation (RAG) pipeline that reads documents (PDF, DOCX, PPTX, HTML), extracts text/tables/images with metadata, chunks them using a dual-layer strategy, stores them in Pinecone, and answers questions using a local LLM with Cohere reranking.
+A Retrieval-Augmented Generation (RAG) pipeline that reads documents (PDF, DOCX, PPTX, HTML), extracts text/tables/images with rich metadata, chunks them using a dual-layer strategy, stores them in Pinecone, and answers questions using a local LLM — with Cohere reranking and **automatic metadata filter detection** from the user's question.
 
 ---
 
@@ -8,14 +8,15 @@ A Retrieval-Augmented Generation (RAG) pipeline that reads documents (PDF, DOCX,
 
 - **Multi-format support**: PDF, DOCX, PPTX, HTML, and plain text files
 - **Image extraction**: Saves embedded images from PDFs, Word docs, and PowerPoints
-- **Metadata-aware chunking**: Each chunk stores source file, page/slide number, table info, and content type
+- **Rich metadata per chunk**: source file, file type, page/slide number, table index, content type, and `date_ingested`
 - **Dual-layer chunking**:
-  - Layer 1: Semantic chunking (via `SemanticChunker`) — splits on meaning
-  - Layer 2: Recursive character splitting — ensures no chunk exceeds size limits
-- **Pinecone vector store**: Stores and retrieves chunks by semantic similarity
-- **Cohere reranking**: Re-ranks top-10 retrieved results to surface the best 5 for the LLM
-- **Local LLM**: Uses Ollama (`gemma3:4b`) — no OpenAI API needed
-- **Duplicate prevention**: Checks if vectors already exist before re-indexing
+  - Layer 1: `SemanticChunker` — splits on meaning (strategy varies by file type)
+  - Layer 2: `RecursiveCharacterTextSplitter` — enforces max chunk size with smart separators
+- **Smart filter detection**: LLM automatically extracts metadata filters from natural language questions (e.g. "show me slide 3", "tables from onboarding file", "last 7 days")
+- **Pinecone metadata filtering**: Runs pre-filtered vector search using detected filters before reranking
+- **Cohere reranking**: Fetches top-20 results, re-ranks using Cohere, passes best 5 to the LLM
+- **Local LLM**: Uses Ollama (`gemma3:4b`) — fully offline, no OpenAI API needed
+- **Duplicate prevention**: Checks existing vector count before re-indexing
 
 ---
 
@@ -36,14 +37,14 @@ PDF_RAG_Metadata/
 ### 1. Clone the repo
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/Sushma2506/PDF_RAG_Metadata.git
 cd PDF_RAG_Metadata
 ```
 
 ### 2. Install dependencies
 
 ```bash
-pip install pdfplumber pymupdf python-pptx python-docx pandas pillow beautifulsoup4 \
+pip install pdfplumber pymupdf python-pptx python-docx pandas pillow beautifulsoup4 requests \
             langchain langchain-text-splitters langchain-experimental \
             langchain-huggingface langchain-ollama langchain-pinecone \
             pinecone-client cohere python-dotenv
@@ -84,7 +85,9 @@ python RAG_Metadata.py
 
 3. On first run, the script indexes your document into Pinecone. On subsequent runs, it asks if you want to re-index or use existing vectors.
 
-4. Enter your questions in the prompt — type `quit` to exit.
+4. Enter your questions in natural language — the LLM will automatically detect if you're asking about a specific slide, file, table, date, or date range.
+
+5. Type `quit` to exit.
 
 ---
 
@@ -94,24 +97,47 @@ python RAG_Metadata.py
 Document
    │
    ▼
-read_file()          → Extracts text, tables, images; returns list of {text, metadata} sections
+read_file()
+   → Extracts text, tables, images per page/slide
+   → Attaches metadata: source, file_type, page/slide, content_type, date_ingested
    │
    ▼
-get_text_chunks()    → Layer 1: SemanticChunker (splits by meaning)
-                     → Layer 2: RecursiveCharacterTextSplitter (enforces size limits)
+get_text_chunks()
+   → Layer 1: SemanticChunker (splits by meaning, strategy varies by file type)
+   → Layer 2: RecursiveCharacterTextSplitter (enforces size limit, smart separators)
+   → Each chunk tagged with chunk_index (e.g. "2_1")
    │
    ▼
-Pinecone             → Stores chunks with metadata as vectors
+Pinecone
+   → Stores chunks with full metadata as vectors
    │
    ▼
-similarity_search()  → Retrieves top-10 most relevant chunks
+User Question
    │
    ▼
-Cohere rerank()      → Re-ranks results, selects top 5
+extract_filters_from_question()    ← LLM reads question and extracts JSON filters
+   → Detects: source, slide, content_type, date_ingested, days
    │
    ▼
-Ollama LLM           → Generates answer from reranked context
+similarity_search_with_score()     ← Top-20 filtered results from Pinecone
+   │
+   ▼
+Cohere rerank()                    ← Re-ranks 20 → selects top 5
+   │
+   ▼
+Ollama LLM (gemma3:4b)            ← Generates answer from reranked context
 ```
+
+---
+
+## 🧠 Smart Filter Detection Examples
+
+| Question | Detected Filter |
+|----------|----------------|
+| `"What is on slide 3?"` | `{"slide": 3}` |
+| `"Show me tables from the onboarding file"` | `{"source": "sample_onboarding", "content_type": "table"}` |
+| `"What did we discuss in the last 7 days?"` | `{"days": 7}` |
+| `"What is the capital of France?"` | `{}` (no filter — searches everything) |
 
 ---
 
@@ -121,16 +147,34 @@ Ollama LLM           → Generates answer from reranked context
 |-----------|---------|-------------|
 | `chunk_size` | 1000 | Max characters per chunk |
 | `chunk_overlap` | 50 | Overlap between chunks |
-| `k` (retrieval) | 10 | Number of chunks fetched from Pinecone |
-| `top_n` (rerank) | 5 | Number of chunks passed to LLM after reranking |
-| Embedding model | `all-MiniLM-L6-v2` | HuggingFace sentence transformer |
+| `k` (retrieval) | 20 | Number of chunks fetched from Pinecone before reranking |
+| `top_n` (rerank) | 5 | Number of chunks passed to LLM after Cohere reranking |
+| Embedding model | `all-MiniLM-L6-v2` | HuggingFace sentence transformer (384 dimensions) |
 | LLM | `gemma3:4b` | Local Ollama model |
 | Reranker | `rerank-english-v3.0` | Cohere reranking model |
+| Pinecone index | `my-first-rag-1` | Serverless, AWS us-east-1, cosine metric |
+
+---
+
+## 📦 Metadata Fields Stored per Chunk
+
+| Field | Description |
+|-------|-------------|
+| `source` | Filename without extension |
+| `file_type` | `pdf`, `docx`, `pptx`, `html`, etc. |
+| `page` | Page number (PDF, DOCX, HTML) |
+| `slide` | Slide number (PPTX) |
+| `total_pages` / `total_slides` | Total count (PDF / PPTX) |
+| `table_num` | Table index (if content is a table) |
+| `content_type` | `"table"` for table sections |
+| `chunk_index` | e.g. `"2_1"` = semantic chunk 2, sub-chunk 1 |
+| `date_ingested` | UTC date when document was indexed (e.g. `"2026-04-14"`) |
 
 ---
 
 ## 📌 Notes
 
-- The Pinecone index dimension is `384` (matching `all-MiniLM-L6-v2`)
-- Reranking requires an active internet connection (Cohere API)
+- Pinecone index dimension is `384` (matching `all-MiniLM-L6-v2`)
+- Reranking and filter detection require an active internet connection (Cohere API)
 - The LLM runs fully locally via Ollama — no data sent to OpenAI
+- If no results are found with a detected filter, the script warns you and asks for a new question

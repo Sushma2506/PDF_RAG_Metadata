@@ -1,26 +1,21 @@
-from pinecone.openapi_support import file_type
 from dotenv import load_dotenv
+from datetime import datetime, timezone, timedelta
 from pptx.enum.shapes import MSO_SHAPE_TYPE
 from pptx import Presentation
 import os
 import sys
 import time
+import json
+import re
 import pdfplumber
 from bs4 import BeautifulSoup
 import docx
 import pandas as pd
-from PIL import Image
 import fitz  # PyMuPDF for PDF images
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_experimental.text_splitter import SemanticChunker
 from langchain_huggingface import HuggingFaceEmbeddings
-
-# Create a vector store with a sample text
-# from langchain_core.vectorstores import InMemoryVectorStore
 from langchain_ollama import OllamaLLM
-
-# from langchain_core.prompts import PromptTemplate       not required for now
-# from langchain.chains import RetrievalQA      why is this used if its not correct what should be used
 from pinecone import Pinecone, ServerlessSpec
 from langchain_pinecone import PineconeVectorStore
 import cohere
@@ -32,7 +27,9 @@ load_dotenv(verbose=True)  # Shows exactly which line fails
 if sys.platform == "win32":
     sys.stdout.reconfigure(encoding="utf-8")
 
-file_path = r"C:\Users\saira\Downloads\SAU-I-983-Instructions.pptx"
+# file_path = r"C:\Users\saira\Downloads\SAU-I-983-Instructions.pptx"
+# file_path = r"C:\Users\saira\Downloads\sample_onboarding.docx"
+file_path = r"C:\Users\saira\Downloads\sample_project_report.html"
 
 
 def ensure_dir(directory):
@@ -158,12 +155,15 @@ def read_file(file_path):
             )
 
         # EXTRACT IMAGES
-        for i, image_part in enumerate(doc.part.blip_store.image_parts):
-            img_path = os.path.join(
-                img_dir, f"doc_img_{i+1}.{image_part.content_type.split('/')[-1]}"
-            )
-            with open(img_path, "wb") as f:
-                f.write(image_part.blob)
+        try:
+            for i, image_part in enumerate(doc.part.blip_store.image_parts):
+                img_path = os.path.join(
+                    img_dir, f"doc_img_{i+1}.{image_part.content_type.split('/')[-1]}"
+                )
+                with open(img_path, "wb") as f:
+                    f.write(image_part.blob)
+        except AttributeError:
+            pass  # No images in this document — that is fine
 
     # ─────────────────────────────────────────
     # PPTX
@@ -223,8 +223,22 @@ def read_file(file_path):
         with open(file_path, "r", encoding="utf-8") as file:
             soup = BeautifulSoup(file.read(), "html.parser")
 
-        # Extract main text
-        page_text = soup.get_text().strip()
+        # Extract text — preserve table structure
+        page_text = ""
+
+        for element in soup.find_all(["p", "h1", "h2", "h3", "h4", "li"]):
+            text = element.get_text().strip()
+            if text:
+                page_text += text + "\n"
+
+        # ── Extract tables with structure preserved ──
+        for table in soup.find_all("table"):
+            rows = table.find_all("tr")
+            for row in rows:
+                cells = [cell.get_text().strip() for cell in row.find_all(["td", "th"])]
+                if any(cells):  # skip empty rows
+                    page_text += " | ".join(cells) + "\n"
+            page_text += "\n"
 
         # Extract images from HTML
         for img_num, img in enumerate(soup.find_all("img"), start=1):
@@ -287,6 +301,14 @@ def read_file(file_path):
                     "metadata": {"source": file_name, "file_type": file_type},
                 }
             )
+
+    # ── Add date_ingested to ALL sections at once ──
+    ingestion_date = datetime.now(timezone.utc).strftime(
+        "%Y-%m-%d"
+    )  # e.g. "2026-04-14"
+
+    for section in sections:
+        section["metadata"]["date_ingested"] = ingestion_date
 
     return sections  # ← returns a LIST of dicts, not a single string:
 
@@ -354,6 +376,52 @@ def get_text_chunks(
     return all_chunks
 
 
+def extract_filters_from_question(question: str) -> dict:
+    """
+    Uses ollama to automatically detect metadata filters from the user's question.
+    Returns a dict like: {"source": "filename", "slide": 3, "date_ingested": "2026-04-14"}
+    """
+
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+    system_prompt = f"""You are a filter extraction assistant. Today's date is {today}.
+
+Your job is to read a user's question and extract search filters from it.
+
+Return ONLY a valid JSON object with these optional keys:
+- "source": filename they mention (string, no extension)
+- "slide": slide number they mention (integer)
+- "content_type": if they mention "table" or "chart" (string)
+- "date_ingested": exact date in YYYY-MM-DD format if they mention a specific date (string)
+- "days": number of days if they say "last N days" or "past N days" (integer)
+
+Rules:
+- Only include a key if the question clearly mentions it
+- If nothing matches, return an empty object: {{}}
+- Return ONLY the JSON. No explanation. No markdown. No extra text.
+
+Examples:
+Question: "What is on slide 3?" → {{"slide": 3}}
+Question: "Show me tables from the onboarding file" → {{"source": "sample_onboarding", "content_type": "table"}}
+Question: "What did we discuss in the last 7 days?" → {{"days": 7}}
+Question: "What is the capital of France?" → {{}}
+
+Now extract filters from this question:
+Question: "{question}"
+Answer: """
+
+    response = llm.invoke(system_prompt)
+    # Clean up response — remove markdown code fences if Ollama adds them
+    cleaned = response.strip()
+    cleaned = re.sub(r"```json|```", "", cleaned).strip()
+
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError:
+        # If Claude returned something unexpected, return empty (no filters)
+        return {}
+
+
 if __name__ == "__main__":
     # Step 1: Read file and split into chunks
     sections = read_file(file_path)
@@ -364,7 +432,7 @@ if __name__ == "__main__":
         model_name="sentence-transformers/all-MiniLM-L6-v2"
     )
     chunks = get_text_chunks(sections, embeddings, file_type)
-    print(chunks)
+    # print(chunks)
     llm = OllamaLLM(model="gemma3:4b")
 
     co = cohere.Client(os.getenv("COHERE_API_KEY"))
@@ -420,18 +488,62 @@ if __name__ == "__main__":
         if question.lower() in ["exit", "quit", "bye", "goodbye", "q"]:
             print("Goodbye!")
             break
+        # ── AUTO-DETECT filters from the question ──
+        # print(" Detecting filters from your question...")
+        detected = extract_filters_from_question(question)
+
+        # if detected:
+        #     print(f"  Filters detected: {detected}")
+        # else:
+        #     print("  No filters detected — searching everything.")
+
+        # ── Build Pinecone filter from detected values ──
+        pinecone_filter = {}
+
+        if detected.get("source"):
+            pinecone_filter["source"] = {"$eq": detected["source"]}
+
+        if detected.get("slide"):
+            pinecone_filter["slide"] = {"$eq": int(detected["slide"])}
+
+        if detected.get("content_type"):
+            pinecone_filter["content_type"] = {"$eq": detected["content_type"]}
+
+        if detected.get("date_ingested"):
+            pinecone_filter["date_ingested"] = {"$eq": detected["date_ingested"]}
+
+        if detected.get("days"):
+            days_ago = int(detected["days"])
+            date_range = [
+                (datetime.now(timezone.utc) - timedelta(days=i)).strftime("%Y-%m-%d")
+                for i in range(days_ago)
+            ]
+            # Pinecone "$in" means: "match any of these values"
+            # Like SQL: WHERE date_ingested IN ('2026-04-14', '2026-04-13', ...)
+            pinecone_filter["date_ingested"] = {"$in": date_range}
+
+        # ── If no filters given, search everything ──
+        search_filter = pinecone_filter if pinecone_filter else None
 
         # Add before retrieval
         start = time.time()
 
         # Retrieve the most similar text WITH SCORES
-        retrieved_documents = vectorstore.similarity_search_with_score(question, k=10)
+        retrieved_documents = vectorstore.similarity_search_with_score(
+            question, k=20, filter=search_filter
+        )
+
+        if not retrieved_documents:
+            print("⚠️  No results found with that filter. Try removing the filter.")
+            continue
+
         # # TEMPORARY → just to see the raw output
         # print("\n--- RAW RESULT EXAMPLE ---")
         # doc, score = retrieved_documents[0]  # look at first result only
         # print(f"Text: {doc.page_content[:200]}")
         # print(f"Metadata: {doc.metadata}")
         # print(f"Score: {score}")
+
         # Re-rank the 10 results using Cohere
         rerank_results = co.rerank(
             query=question,
@@ -439,26 +551,30 @@ if __name__ == "__main__":
             top_n=5,
             model="rerank-english-v3.0",
         )
-        print(f"rerank_results are {rerank_results}")
+        # print(f"rerank_results are {rerank_results}")
+
         # Build reranked list in new order
         reranked_documents = [
             retrieved_documents[result.index] for result in rerank_results.results
         ]
+
         retrieval_time = time.time()
-        print("\n--- SOURCES FOUND ---")
-        for i, (doc, score) in enumerate(retrieved_documents, 1):
-            meta = doc.metadata
-            location = meta.get("slide") or meta.get("page") or "?"
-            print(
-                f"  [{i}] Score: {score:.3f} | "
-                f"File: {meta.get('source')} | "
-                f"Page/Slide: {location} | "
-                f"Chunk: {meta.get('chunk_index')}"
-            )
+
+        # print("\n--- SOURCES FOUND ---")
+        # for i, (doc, score) in enumerate(retrieved_documents, 1):
+        #     meta = doc.metadata
+        #     location = meta.get("slide") or meta.get("page") or "?"
+        #     print(
+        #         f"  [{i}] Score: {score:.3f} | "
+        #         f"File: {meta.get('source')} | "
+        #         f"Page/Slide: {location} | "
+        #         f"Chunk: {meta.get('chunk_index')}"
+        #     )
 
         context = "\n\n".join([doc.page_content for doc, score in reranked_documents])
 
         print(f"\n📊 Context stats:")
+        # print(context)
         print(f"  Chunks: {len(retrieved_documents)}")
         print(f"  Characters: {len(context):,}")
         print(f"  Estimated tokens: ~{len(context) // 4:,}")
@@ -482,11 +598,11 @@ if __name__ == "__main__":
         Answer:"""
 
         response = llm.invoke(prompt)
-        generation_time = time.time()
-        print(f"\n⏱️ TIMING:")
-        print(f"  Retrieval: {retrieval_time - start:.2f}s")
-        print(f"  Generation: {generation_time - retrieval_time:.2f}s")
-        print(f"  Total: {generation_time - start:.2f}s")
+        # generation_time = time.time()
+        # print(f"\n⏱️ TIMING:")
+        # print(f"  Retrieval: {retrieval_time - start:.2f}s")
+        # print(f"  Generation: {generation_time - retrieval_time:.2f}s")
+        # print(f"  Total: {generation_time - start:.2f}s")
         print(f"\nAnswer: {response}")
 else:
     print("Usage: python ReadFile.py")

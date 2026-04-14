@@ -3,3 +3,6 @@ __pycache__/
 *.pyc
 output.txt
 *_images/
+sample_onboarding_images/
+sample_project_report_images/
+SAU-I-983-Instructions_images/
