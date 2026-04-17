@@ -19,6 +19,8 @@ from langchain_ollama import OllamaLLM
 from pinecone import Pinecone, ServerlessSpec
 from langchain_pinecone import PineconeVectorStore
 import cohere
+import tkinter as tk
+from tkinter import filedialog
 
 # loading .env file (must be first)
 load_dotenv(verbose=True)  # Shows exactly which line fails
@@ -26,10 +28,6 @@ load_dotenv(verbose=True)  # Shows exactly which line fails
 # Reconfigure stdout to handle utf-8 characters properly in Windows terminal
 if sys.platform == "win32":
     sys.stdout.reconfigure(encoding="utf-8")
-
-# file_path = r"C:\Users\saira\Downloads\SAU-I-983-Instructions.pptx"
-# file_path = r"C:\Users\saira\Downloads\sample_onboarding.docx"
-file_path = r"C:\Users\saira\Downloads\sample_project_report.html"
 
 
 def ensure_dir(directory):
@@ -313,47 +311,50 @@ def read_file(file_path):
     return sections  # ← returns a LIST of dicts, not a single string:
 
 
-def get_text_chunks(
-    sections, embeddings, file_type=None, chunk_size=1000, chunk_overlap=50
-):
-    # Choose semantic chunker based on file type
-    if file_type in ("pptx", "pdf", "docx"):
-        semantic_splitter = SemanticChunker(
-            embeddings=embeddings,
-            breakpoint_threshold_type="percentile",
-            breakpoint_threshold_amount=95,
-        )
-    elif file_type in ("html", "htm"):
-        semantic_splitter = SemanticChunker(
-            embeddings=embeddings,
-            breakpoint_threshold_type="interquartile",
-            breakpoint_threshold_amount=1.5,
-        )
-    else:
-        semantic_splitter = SemanticChunker(
-            embeddings=embeddings,
-            breakpoint_threshold_type="standard_deviation",
-            breakpoint_threshold_amount=3,
-        )
-    splitter = RecursiveCharacterTextSplitter(
-        chunk_size=chunk_size,
-        chunk_overlap=chunk_overlap,
-        separators=[
-            "\n\n",  # paragraph break → try this first
-            "\n",  # single line break → try second
-            ". ",  # sentence ending → try third
-            " ",  # word boundary → try fourth
-            "",  # last resort → cut anywhere
-        ],
-    )
+def get_text_chunks(sections, embeddings, chunk_size=1000, chunk_overlap=50):
+
     all_chunks = []
 
     for section in sections:
         raw_text = section["text"]
         base_metadata = section["metadata"]
 
+        # ← read THIS section's own file_type from its metadata
+        file_type = base_metadata.get("file_type", "txt")
+
         if not raw_text.strip():
-            continue  # skip empty sections
+            continue
+
+        # Choose semantic chunker based on THIS section's file type
+        if file_type in ("pptx", "pdf", "docx"):
+            semantic_splitter = SemanticChunker(
+                embeddings=embeddings,
+                breakpoint_threshold_type="percentile",
+                breakpoint_threshold_amount=95,
+            )
+        elif file_type in ("html", "htm"):
+            semantic_splitter = SemanticChunker(
+                embeddings=embeddings,
+                breakpoint_threshold_type="interquartile",
+                breakpoint_threshold_amount=1.5,
+            )
+        else:
+            semantic_splitter = SemanticChunker(
+                embeddings=embeddings,
+                breakpoint_threshold_type="standard_deviation",
+                breakpoint_threshold_amount=3,
+            )
+        splitter = RecursiveCharacterTextSplitter(
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            separators=[
+                "\n\n",  # paragraph break → try this first
+                "\n",  # single line break → try second
+                ". ",  # sentence ending → try third
+                " ",  # word boundary → try fourth
+                "",  # last resort → cut anywhere
+            ],
+        )
 
         # Layer 1 → semantic chunking first
         semantic_chunks = semantic_splitter.split_text(raw_text)
@@ -422,16 +423,80 @@ Answer: """
         return {}
 
 
+def pick_file() -> list:
+    """
+    Opens a GUI file picker window.
+    Allows selecting MULTIPLE files at once.
+    Returns a list of selected file paths.
+    Exits the program if no file is selected.
+    """
+    supported_types = [
+        ("All supported files", "*.pdf *.docx *.pptx *.html *.htm *.txt"),
+        ("PDF files", "*.pdf"),
+        ("Word documents", "*.docx"),
+        ("PowerPoint files", "*.pptx"),
+        ("HTML files", "*.html *.htm"),
+        ("Text files", "*.txt"),
+        ("All files", "*.*"),
+    ]
+
+    root = tk.Tk()
+    root.withdraw()
+    root.attributes("-topmost", True)
+
+    print("📂 Opening file picker — hold Ctrl to select multiple files...")
+
+    # ← askopenfilenames (plural) allows multiple selection
+    selected_paths = filedialog.askopenfilenames(
+        title="Select one or more documents to index",
+        filetypes=supported_types,
+    )
+
+    root.destroy()
+
+    if not selected_paths:
+        print("❌ No file selected. Exiting.")
+        sys.exit(0)
+
+    print(f"✅ {len(selected_paths)} file(s) selected:")
+    for path in selected_paths:
+        print(f"   → {path}")
+
+    return list(selected_paths)  # returns a LIST of paths
+
+
 if __name__ == "__main__":
-    # Step 1: Read file and split into chunks
-    sections = read_file(file_path)
-    file_type = file_path.split(".")[-1].lower()
+    # Step 1: Pick files using GUI popup — supports multiple files
+    file_paths = pick_file()  # ← now a LIST of paths
+
+    # Process each file and collect all sections together
+    all_sections = []
+
+    for file_path in file_paths:
+        print(f"\n📄 Reading: {file_path}")
+
+        # ← get THIS file's type right here, where we know the path
+        this_file_type = file_path.split(".")[-1].lower()
+
+        sections = read_file(file_path)
+
+        # ← stamp file_type onto every section's metadata
+        for section in sections:
+            section["metadata"]["file_type"] = this_file_type
+
+        all_sections.extend(sections)  # add this file's sections to the master list
+        print(f"   → {len(sections)} sections extracted")
+
+    print(f"\n✅ Total sections from all files: {len(all_sections)}")
 
     # Step 2: Setup embeddings and LLM
     embeddings = HuggingFaceEmbeddings(
         model_name="sentence-transformers/all-MiniLM-L6-v2"
     )
-    chunks = get_text_chunks(sections, embeddings, file_type)
+
+    # ← pass all_sections WITHOUT a single file_type
+    # get_text_chunks will read file_type from each section's metadata
+    chunks = get_text_chunks(all_sections, embeddings)
     # print(chunks)
     llm = OllamaLLM(model="gemma3:4b")
 
@@ -465,9 +530,20 @@ if __name__ == "__main__":
         if choice.lower() == "y":
             print("Clearing index...")
             index.delete(delete_all=True)
+            # ── Wait until Pinecone confirms index is actually empty ──
+            print("Waiting for index to clear", end="")
+            for attempt in range(20):  # try up to 20 times
+                time.sleep(2)  # wait 2 seconds each time
+                stats = index.describe_index_stats()
+                vector_count = stats.get("total_vector_count", 0)
+                print(".", end="", flush=True)  # print a dot so user knows it's working
+                if vector_count == 0:
+                    break  # stop waiting — index is empty
+
+            print(f" done! ({vector_count} vectors remaining)")
             vector_count = 0
             # Wait a moment for the deletion to propagate
-            time.sleep(2)
+            time.sleep(10)
 
     if vector_count == 0:
         print(f"Indexing {len(chunks)} chunks...")
@@ -488,6 +564,7 @@ if __name__ == "__main__":
         if question.lower() in ["exit", "quit", "bye", "goodbye", "q"]:
             print("Goodbye!")
             break
+            
         # ── AUTO-DETECT filters from the question ──
         # print(" Detecting filters from your question...")
         detected = extract_filters_from_question(question)
