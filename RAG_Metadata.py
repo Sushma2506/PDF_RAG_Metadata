@@ -21,6 +21,8 @@ from langchain_pinecone import PineconeVectorStore
 import cohere
 import tkinter as tk
 from tkinter import filedialog
+import sqlite3
+import hashlib
 
 # loading .env file (must be first)
 load_dotenv(verbose=True)  # Shows exactly which line fails
@@ -564,7 +566,7 @@ if __name__ == "__main__":
         if question.lower() in ["exit", "quit", "bye", "goodbye", "q"]:
             print("Goodbye!")
             break
-            
+
         # ── AUTO-DETECT filters from the question ──
         # print(" Detecting filters from your question...")
         detected = extract_filters_from_question(question)
@@ -675,11 +677,11 @@ if __name__ == "__main__":
         Answer:"""
 
         response = llm.invoke(prompt)
-        # generation_time = time.time()
-        # print(f"\n⏱️ TIMING:")
-        # print(f"  Retrieval: {retrieval_time - start:.2f}s")
-        # print(f"  Generation: {generation_time - retrieval_time:.2f}s")
-        # print(f"  Total: {generation_time - start:.2f}s")
+        generation_time = time.time()
+        print(f"\n⏱️ TIMING:")
+        print(f"  Retrieval: {retrieval_time - start:.2f}s")
+        print(f"  Generation: {generation_time - retrieval_time:.2f}s")
+        print(f"  Total: {generation_time - start:.2f}s")
         print(f"\nAnswer: {response}")
 else:
     print("Usage: python ReadFile.py")
