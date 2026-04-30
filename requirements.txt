@@ -1,0 +1,15 @@
+python-dotenv
+pdfplumber
+beautifulsoup4
+python-docx
+pandas
+pymupdf
+python-pptx
+langchain-text-splitters
+langchain-experimental
+langchain-huggingface
+langchain-ollama
+pinecone-client
+langchain-pinecone
+cohere
+requests
